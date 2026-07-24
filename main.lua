@@ -99,7 +99,7 @@ function Library:CreateWindow(titleText)
     Header.Size = UDim2.new(1, -30, 0, 34)
     Header.Position = UDim2.new(0, 0, 0, 0)
     Header.Text = "  " .. titleText
-    Header.TextXAlignment = Enum.TextXAlignment.Left
+    Header.TextXAlignment = Enum.TextXAlignment.Center
     Header.Parent = MainFrame
 
     -- Collapse/Expand Arrow Button
