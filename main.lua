@@ -4,7 +4,7 @@ local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 
 local function getClonedRef(object)
-    if cloneref then
+    if typeof(cloneref) == "function" then
         return cloneref(object)
     end
     return object
@@ -13,13 +13,21 @@ end
 local LocalPlayer = getClonedRef(Players.LocalPlayer)
 
 local function getGuiContainer()
-    if gethui then
-        return gethui()
-    elseif CoreGui:FindFirstChild("RobloxGui") then
-        return CoreGui
-    else
-        return LocalPlayer:WaitForChild("PlayerGui")
+    local success, hui = pcall(function()
+        return typeof(gethui) == "function" and gethui()
+    end)
+    if success and hui then
+        return hui
     end
+
+    local successCore, cGui = pcall(function()
+        return CoreGui:FindFirstChild("RobloxGui") and CoreGui
+    end)
+    if successCore and cGui then
+        return cGui
+    end
+
+    return LocalPlayer:WaitForChild("PlayerGui")
 end
 
 -- Library State
@@ -42,6 +50,17 @@ local Theme = {
     SubText = Color3.fromRGB(180, 180, 180)
 }
 
+-- Utility Helpers
+local Utility = {}
+function Utility:Tween(instance, properties, duration, style, direction)
+    style = style or Enum.EasingStyle.Quart
+    direction = direction or Enum.EasingDirection.Out
+    duration = duration or 0.25
+    local tween = TweenService:Create(instance, TweenInfo.new(duration, style, direction), properties)
+    tween:Play()
+    return tween
+end
+
 -- Create Main ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "XeryuLib_Gui"
@@ -59,7 +78,7 @@ function Library:CreateWindow(titleText)
     MainFrame.Name = "MainFrame"
     MainFrame.BorderSizePixel = 0
     MainFrame.BackgroundColor3 = Theme.Background
-    MainFrame.Size = UDim2.new(0, 210, 0, 36) -- Starts at header height, auto-expands
+    MainFrame.Size = UDim2.new(0, 210, 0, 36)
     MainFrame.Position = UDim2.new(0.5, -105, 0.3, 0)
     MainFrame.ClipsDescendants = true
     MainFrame.Active = true
@@ -101,7 +120,7 @@ function Library:CreateWindow(titleText)
     ContentContainer.BorderSizePixel = 0
     ContentContainer.BackgroundTransparency = 1
     ContentContainer.Position = UDim2.new(0, 0, 0, 36)
-    ContentContainer.Size = UDim2.new(1, 0, 0, 0)
+    ContentContainer.Size = UDim2.new(1, 0, 1, -36)
     ContentContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
     ContentContainer.ScrollBarThickness = 2
     ContentContainer.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
@@ -178,9 +197,9 @@ function Library:CreateWindow(titleText)
         ContentContainer.Size = UDim2.new(1, 0, 0, lastContentHeight)
 
         if expanded then
-            TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Utility:Tween(MainFrame, {
                 Size = UDim2.new(0, 210, 0, 36 + lastContentHeight)
-            }):Play()
+            }, 0.25)
         end
     end
 
@@ -191,13 +210,13 @@ function Library:CreateWindow(titleText)
         local targetHeight = expanded and (36 + lastContentHeight) or 36
         local targetRotation = expanded and 0 or 180
 
-        TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Utility:Tween(MainFrame, {
             Size = UDim2.new(0, 210, 0, targetHeight)
-        }):Play()
+        }, 0.25)
 
-        TweenService:Create(ToggleBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Utility:Tween(ToggleBtn, {
             Rotation = targetRotation
-        }):Play()
+        }, 0.25)
     end)
 
     ----------------------------------------------------------------------------
@@ -228,11 +247,11 @@ function Library:CreateWindow(titleText)
         UICorner.Parent = Button
 
         Button.MouseButton1Down:Connect(function()
-            TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
+            Utility:Tween(Button, {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}, 0.1)
         end)
 
         Button.MouseButton1Up:Connect(function()
-            TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Theme.Buttons}):Play()
+            Utility:Tween(Button, {BackgroundColor3 = Theme.Buttons}, 0.1)
         end)
 
         Button.MouseButton1Click:Connect(function()
@@ -286,7 +305,7 @@ function Library:CreateWindow(titleText)
             toggled = state
             if flag then Library.Flags[flag] = toggled end
             local targetColor = toggled and Theme.ToggleOn or Theme.ToggleOff
-            TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
+            Utility:Tween(ToggleBtn, {BackgroundColor3 = targetColor}, 0.2)
             task.spawn(callback, toggled)
         end
 
@@ -506,6 +525,7 @@ function Library:CreateWindow(titleText)
         return Container
     end
 
+    -- 6. DROPDOWN
     function Tab:AddDropdown(options)
         options = options or {}
         local text = options.text or options.Text or "Select Option"
@@ -514,7 +534,6 @@ function Library:CreateWindow(titleText)
         local flag = options.flag or options.Flag
         local callback = options.callback or options.Callback or function() end
 
-        -- Determine initial selection value
         local currentSelection = ""
         if type(selectVal) == "number" then
             currentSelection = values[selectVal] or values[1] or ""
@@ -526,7 +545,7 @@ function Library:CreateWindow(titleText)
         Container.Name = "DropdownContainer"
         Container.Size = UDim2.new(1, 0, 0, 30)
         Container.BackgroundTransparency = 1
-        Container.Parent = ScrollingFrame
+        Container.Parent = ContentContainer -- Fixed Parent reference
 
         local DropdownBtn = Instance.new("TextButton")
         DropdownBtn.Name = "DropdownButton"
@@ -544,7 +563,7 @@ function Library:CreateWindow(titleText)
         UICorner.CornerRadius = UDim.new(0, 3)
         UICorner.Parent = DropdownBtn
 
-        -- Fullscreen Overlay Background
+        -- Fullscreen Overlay Context Modal
         local Overlay = Instance.new("TextButton")
         Overlay.Name = "DropdownModalOverlay"
         Overlay.Size = UDim2.new(1, 0, 1, 0)
@@ -556,7 +575,6 @@ function Library:CreateWindow(titleText)
         Overlay.ZIndex = 100
         Overlay.Parent = ScreenGui
 
-        -- Modal Container Frame
         local ModalFrame = Instance.new("TextButton")
         ModalFrame.Name = "ModalFrame"
         ModalFrame.Size = UDim2.new(0, 180, 0, 0)
@@ -608,7 +626,6 @@ function Library:CreateWindow(titleText)
         end
 
         local function openModal()
-            -- Clear previous entries
             for _, child in ipairs(ModalScroll:GetChildren()) do
                 if child:IsA("TextButton") then
                     child:Destroy()
@@ -650,8 +667,7 @@ function Library:CreateWindow(titleText)
         end
 
         DropdownBtn.MouseButton1Click:Connect(openModal)
-        
-        -- Close when clicking outside on the overlay background only
+
         Overlay.MouseButton1Click:Connect(function()
             closeModal()
         end)
@@ -662,123 +678,6 @@ function Library:CreateWindow(titleText)
     end
 
     return Tab
-end
-    -- 6. KEYBIND
-    function Tab:AddBind(options)
-        options = options or {}
-        local text = options.text or "Keybind"
-        local defaultKey = options.key or "X"
-        local holdMode = options.hold or false
-        local callback = options.callback or function() end
-
-        local currentKey = defaultKey
-
-        local Container = Instance.new("Frame")
-        Container.Name = "Keybind"
-        Container.Size = UDim2.new(1, 0, 0, 30)
-        Container.BackgroundTransparency = 1
-        Container.Parent = ContentContainer
-
-        local Label = Instance.new("TextLabel")
-        Label.Size = UDim2.new(1, -50, 1, 0)
-        Label.BackgroundTransparency = 1
-        Label.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-        Label.Text = text
-        Label.TextColor3 = Theme.Text
-        Label.TextSize = 13
-        Label.TextXAlignment = Enum.TextXAlignment.Left
-        Label.Parent = Container
-
-        local FrameBtn = Instance.new("Frame")
-        FrameBtn.Name = "Frame_5"
-        FrameBtn.Size = UDim2.new(0, 44, 0, 26)
-        FrameBtn.Position = UDim2.new(1, -44, 0.5, -13)
-        FrameBtn.BackgroundColor3 = Theme.Background
-        FrameBtn.Parent = Container
-
-        local FrameCorner = Instance.new("UICorner")
-        FrameCorner.CornerRadius = UDim.new(0, 4)
-        FrameCorner.Parent = FrameBtn
-
-        local UIStroke = Instance.new("UIStroke")
-        UIStroke.Thickness = 1
-        UIStroke.Color = Color3.fromRGB(56, 56, 56)
-        UIStroke.Parent = FrameBtn
-
-        local KeybindButton = Instance.new("TextButton")
-        KeybindButton.Name = "KeybindButton"
-        KeybindButton.Size = UDim2.new(1, 0, 1, 0)
-        KeybindButton.BackgroundTransparency = 1
-        KeybindButton.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-        KeybindButton.Text = currentKey
-        KeybindButton.TextColor3 = Theme.Text
-        KeybindButton.TextSize = 12
-        KeybindButton.Parent = FrameBtn
-
-        local binding = false
-
-        KeybindButton.MouseButton1Click:Connect(function()
-            binding = true
-            KeybindButton.Text = "..."
-            setScrollingEnabled(false)
-        end)
-
-        UserInputService.InputBegan:Connect(function(input, gpe)
-            if gpe then return end
-
-            if binding then
-                if input.UserInputType == Enum.UserInputType.Keyboard then
-                    currentKey = input.KeyCode.Name
-                    KeybindButton.Text = currentKey
-                    binding = false
-                    setScrollingEnabled(true)
-                elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 then
-                    currentKey = input.UserInputType.Name
-                    KeybindButton.Text = currentKey
-                    binding = false
-                    setScrollingEnabled(true)
-                end
-            else
-                if not holdMode then
-                    if (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == currentKey)
-                    or (input.UserInputType.Name == currentKey) then
-                        task.spawn(callback)
-                    end
-                else
-                    if (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == currentKey)
-                    or (input.UserInputType.Name == currentKey) then
-                        task.spawn(callback, true)
-                    end
-                end
-            end
-        end)
-
-        if holdMode then
-            UserInputService.InputEnded:Connect(function(input, gpe)
-                if gpe or binding then return end
-                if (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == currentKey)
-                or (input.UserInputType.Name == currentKey) then
-                    task.spawn(callback, false)
-                end
-            end)
-        end
-
-        return Container
-    end
-
-    Library.CurrentWindow = Tab
-    return Tab
-end
-
-function Library:Init()
-    -- Initialization tasks if needed
-end
-
-function Library:Close()
-    if ScreenGui then
-        ScreenGui:Destroy()
-    end
-    Library.Unloaded = true
 end
 
 return Library
