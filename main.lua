@@ -1,131 +1,144 @@
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 
-local function getParent()
-    local success, hui = pcall(function()
-        return typeof(gethui) == "function" and gethui()
-    end)
-    if success and hui then
-        return hui
+local function getClonedRef(object)
+    if cloneref then
+        return cloneref(object)
     end
-    
-    local successRef, coreGui = pcall(function()
-        local cl = typeof(cloneref) == "function" and cloneref or function(v) return v end
-        return cl(game:GetService("CoreGui"))
-    end)
-    if successRef and coreGui then
-        return coreGui
-    end
-
-    return Players.LocalPlayer:WaitForChild("PlayerGui")
+    return object
 end
 
+local LocalPlayer = getClonedRef(Players.LocalPlayer)
+
+local function getGuiContainer()
+    if gethui then
+        return gethui()
+    elseif CoreGui:FindFirstChild("RobloxGui") then
+        return CoreGui
+    else
+        return LocalPlayer:WaitForChild("PlayerGui")
+    end
+end
+
+-- Library State
 local Library = {
     Flags = {},
-    Unloaded = false
+    Unloaded = false,
+    CurrentWindow = nil
 }
 
-local Utility = {}
+local Theme = {
+    Background = Color3.fromRGB(21, 21, 21),
+    Header = Color3.fromRGB(36, 36, 36),
+    Buttons = Color3.fromRGB(48, 48, 48),
+    SliderBg = Color3.fromRGB(40, 40, 40),
+    SliderFill = Color3.fromRGB(255, 255, 255),
+    InputBorder = Color3.fromRGB(61, 61, 61),
+    ToggleOff = Color3.fromRGB(200, 50, 50),
+    ToggleOn = Color3.fromRGB(0, 255, 0),
+    Text = Color3.fromRGB(255, 255, 255),
+    SubText = Color3.fromRGB(180, 180, 180)
+}
 
-function Utility:Tween(instance, properties, duration, style, direction)
-    style = style or Enum.EasingStyle.Quart
-    direction = direction or Enum.EasingDirection.Out
-    duration = duration or 0.25
-    local tween = TweenService:Create(instance, TweenInfo.new(duration, style, direction), properties)
-    tween:Play()
-    return tween
-end
+-- Create Main ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "XeryuLib_Gui"
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = getGuiContainer()
 
+--------------------------------------------------------------------------------
+-- WINDOW CREATION
+--------------------------------------------------------------------------------
 function Library:CreateWindow(titleText)
     titleText = titleText or "XeryuLib"
 
-    -- Root ScreenGui
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "XeryuLib_" .. math.random(100000, 999999)
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = getParent()
-
-    -- Main Container Frame
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
     MainFrame.BorderSizePixel = 0
-    MainFrame.BackgroundColor3 = Color3.fromRGB(21, 21, 21)
-    MainFrame.Size = UDim2.new(0, 206, 0, 38) -- Starts at header size, resizes automatically
-    MainFrame.Position = UDim2.new(0, 270, 0, 12)
+    MainFrame.BackgroundColor3 = Theme.Background
+    MainFrame.Size = UDim2.new(0, 210, 0, 36) -- Starts at header height, auto-expands
+    MainFrame.Position = UDim2.new(0.5, -105, 0.3, 0)
     MainFrame.ClipsDescendants = true
+    MainFrame.Active = true
     MainFrame.Parent = ScreenGui
 
     local MainCorner = Instance.new("UICorner")
     MainCorner.CornerRadius = UDim.new(0, 4)
     MainCorner.Parent = MainFrame
 
-    -- Header Frame
-    local Header = Instance.new("Frame")
+    -- Header Title
+    local Header = Instance.new("TextLabel")
     Header.Name = "Header"
-    Header.Size = UDim2.new(1, 0, 0, 34)
-    Header.BackgroundTransparency = 1
+    Header.BorderSizePixel = 0
+    Header.TextSize = 15
+    Header.BackgroundColor3 = Theme.Header
+    Header.FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
+    Header.TextColor3 = Theme.Text
+    Header.Size = UDim2.new(1, -30, 0, 34)
+    Header.Position = UDim2.new(0, 0, 0, 0)
+    Header.Text = "  " .. titleText
+    Header.TextXAlignment = Enum.TextXAlignment.Left
     Header.Parent = MainFrame
 
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Name = "TitleLabel"
-    TitleLabel.BorderSizePixel = 0
-    TitleLabel.TextSize = 15
-    TitleLabel.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
-    TitleLabel.FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.ExtraBold, Enum.FontStyle.Normal)
-    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TitleLabel.Size = UDim2.new(1, -28, 1, 0)
-    TitleLabel.Position = UDim2.new(0, 0, 0, 0)
-    TitleLabel.Text = "  " .. titleText
-    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TitleLabel.Parent = Header
+    -- Collapse/Expand Arrow Button
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Name = "OpenUi/CloseUi"
+    ToggleBtn.BorderSizePixel = 0
+    ToggleBtn.TextSize = 12
+    ToggleBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    ToggleBtn.BackgroundColor3 = Theme.Header
+    ToggleBtn.Size = UDim2.new(0, 30, 0, 34)
+    ToggleBtn.Position = UDim2.new(1, -30, 0, 0)
+    ToggleBtn.Text = "▲"
+    ToggleBtn.Parent = MainFrame
 
-    local CollapseButton = Instance.new("TextButton")
-    CollapseButton.Name = "CollapseButton"
-    CollapseButton.TextWrapped = true
-    CollapseButton.BorderSizePixel = 0
-    CollapseButton.TextScaled = true
-    CollapseButton.TextColor3 = Color3.fromRGB(200, 200, 200)
-    CollapseButton.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
-    CollapseButton.Size = UDim2.new(0, 28, 1, 0)
-    CollapseButton.Position = UDim2.new(1, -28, 0, 0)
-    CollapseButton.Text = "▲"
-    CollapseButton.Parent = Header
-
-    -- Scrolling Content Area
-    local ScrollingFrame = Instance.new("ScrollingFrame")
-    ScrollingFrame.Name = "Content"
-    ScrollingFrame.BorderSizePixel = 0
-    ScrollingFrame.BackgroundColor3 = Color3.fromRGB(21, 21, 21)
-    ScrollingFrame.BackgroundTransparency = 1
-    ScrollingFrame.Position = UDim2.new(0, 0, 0, 38)
-    ScrollingFrame.Size = UDim2.new(1, 0, 1, -38)
-    ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    ScrollingFrame.ScrollBarThickness = 2
-    ScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
-    ScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    ScrollingFrame.Parent = MainFrame
+    -- Dynamic Content Container (ScrollingFrame)
+    local ContentContainer = Instance.new("ScrollingFrame")
+    ContentContainer.Name = "Content"
+    ContentContainer.BorderSizePixel = 0
+    ContentContainer.BackgroundTransparency = 1
+    ContentContainer.Position = UDim2.new(0, 0, 0, 36)
+    ContentContainer.Size = UDim2.new(1, 0, 0, 0)
+    ContentContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ContentContainer.ScrollBarThickness = 2
+    ContentContainer.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
+    ContentContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    ContentContainer.Parent = MainFrame
 
     local UIListLayout = Instance.new("UIListLayout")
     UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
     UIListLayout.Padding = UDim.new(0, 6)
-    UIListLayout.Parent = ScrollingFrame
+    UIListLayout.Parent = ContentContainer
 
     local UIPadding = Instance.new("UIPadding")
-    UIPadding.PaddingTop = UDim.new(0, 4)
-    UIPadding.PaddingLeft = UDim.new(0, 4)
-    UIPadding.PaddingRight = UDim.new(0, 4)
-    UIPadding.PaddingBottom = UDim.new(0, 6)
-    UIPadding.Parent = ScrollingFrame
+    UIPadding.PaddingTop = UDim.new(0, 6)
+    UIPadding.PaddingBottom = UDim.new(0, 8)
+    UIPadding.PaddingLeft = UDim.new(0, 6)
+    UIPadding.PaddingRight = UDim.new(0, 6)
+    UIPadding.Parent = ContentContainer
 
-    -- Dragging Logic for Main Window
+    ----------------------------------------------------------------------------
+    -- DRAGGING MECHANIC
+    ----------------------------------------------------------------------------
     local dragging, dragInput, dragStart, startPos
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+
     Header.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = MainFrame.Position
+
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -142,46 +155,357 @@ function Library:CreateWindow(titleText)
 
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            update(input)
         end
     end)
 
-    -- Auto Height & Collapse Logic
-    local collapsed = false
-    local lastExpandedHeight = 250
+    ----------------------------------------------------------------------------
+    -- ANTI-SWIPE (MOBILE SCROLL PROTECTION)
+    ----------------------------------------------------------------------------
+    local function setScrollingEnabled(enabled)
+        ContentContainer.ScrollingEnabled = enabled
+    end
+
+    ----------------------------------------------------------------------------
+    -- AUTO-RESIZING & COLLAPSE LOGIC
+    ----------------------------------------------------------------------------
+    local expanded = true
+    local lastContentHeight = 0
 
     local function updateWindowSize()
-        if not collapsed then
-            local contentHeight = UIListLayout.AbsoluteContentSize.Y + 48
-            lastExpandedHeight = math.clamp(contentHeight, 50, 500)
-            Utility:Tween(MainFrame, {Size = UDim2.new(0, 206, 0, lastExpandedHeight)}, 0.15)
+        local absoluteContentSize = UIListLayout.AbsoluteContentSize.Y + UIPadding.PaddingTop.Offset + UIPadding.PaddingBottom.Offset
+        lastContentHeight = math.clamp(absoluteContentSize, 0, 350)
+        ContentContainer.Size = UDim2.new(1, 0, 0, lastContentHeight)
+
+        if expanded then
+            TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 210, 0, 36 + lastContentHeight)
+            }):Play()
         end
     end
 
     UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateWindowSize)
 
-    CollapseButton.MouseButton1Click:Connect(function()
-        collapsed = not collapsed
-        if collapsed then
-            Utility:Tween(CollapseButton, {Rotation = 180}, 0.25)
-            Utility:Tween(MainFrame, {Size = UDim2.new(0, 206, 0, 34)}, 0.25)
-        else
-            Utility:Tween(CollapseButton, {Rotation = 0}, 0.25)
-            Utility:Tween(MainFrame, {Size = UDim2.new(0, 206, 0, lastExpandedHeight)}, 0.25)
-        end
+    ToggleBtn.MouseButton1Click:Connect(function()
+        expanded = not expanded
+        local targetHeight = expanded and (36 + lastContentHeight) or 36
+        local targetRotation = expanded and 0 or 180
+
+        TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 210, 0, targetHeight)
+        }):Play()
+
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Rotation = targetRotation
+        }):Play()
     end)
 
-    -- Anti-Swipe Mobile / Scroll Lockdown helper
-    local function setScrollLock(locked)
-        ScrollingFrame.ScrollingEnabled = not locked
-    end
-
     ----------------------------------------------------------------------------
-    -- WINDOW ELEMENTS API
+    -- ELEMENT FACTORY (Tab Object)
     ----------------------------------------------------------------------------
     local Tab = {}
-    
+
+    -- 1. BUTTON
+    function Tab:AddButton(options)
+        options = options or {}
+        local text = options.text or "Button"
+        local callback = options.callback or function() end
+
+        local Button = Instance.new("TextButton")
+        Button.Name = "Button"
+        Button.Size = UDim2.new(1, 0, 0, 28)
+        Button.BackgroundColor3 = Theme.Buttons
+        Button.BorderSizePixel = 0
+        Button.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+        Button.Text = text
+        Button.TextColor3 = Theme.Text
+        Button.TextSize = 13
+        Button.TextWrapped = true
+        Button.Parent = ContentContainer
+
+        local UICorner = Instance.new("UICorner")
+        UICorner.CornerRadius = UDim.new(0, 3)
+        UICorner.Parent = Button
+
+        Button.MouseButton1Down:Connect(function()
+            TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
+        end)
+
+        Button.MouseButton1Up:Connect(function()
+            TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Theme.Buttons}):Play()
+        end)
+
+        Button.MouseButton1Click:Connect(function()
+            task.spawn(callback)
+        end)
+
+        return Button
+    end
+
+    -- 2. TOGGLE
+    function Tab:AddToggle(options)
+        options = options or {}
+        local text = options.text or "Toggle"
+        local flag = options.flag
+        local defaultState = options.default or false
+        local callback = options.callback or function() end
+
+        local toggled = defaultState
+
+        local Container = Instance.new("Frame")
+        Container.Name = "ToggleContainer"
+        Container.Size = UDim2.new(1, 0, 0, 30)
+        Container.BackgroundTransparency = 1
+        Container.Parent = ContentContainer
+
+        local Label = Instance.new("TextLabel")
+        Label.Name = "TextLabel2"
+        Label.Size = UDim2.new(1, -34, 1, 0)
+        Label.Position = UDim2.new(0, 0, 0, 0)
+        Label.BackgroundTransparency = 1
+        Label.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+        Label.Text = text
+        Label.TextColor3 = Theme.Text
+        Label.TextSize = 13
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.Parent = Container
+
+        local ToggleBtn = Instance.new("TextButton")
+        ToggleBtn.Name = "TextButton2"
+        ToggleBtn.Size = UDim2.new(0, 26, 0, 26)
+        ToggleBtn.Position = UDim2.new(1, -26, 0.5, -13)
+        ToggleBtn.BackgroundColor3 = toggled and Theme.ToggleOn or Theme.ToggleOff
+        ToggleBtn.Text = ""
+        ToggleBtn.Parent = Container
+
+        local UICorner = Instance.new("UICorner")
+        UICorner.CornerRadius = UDim.new(0, 4)
+        UICorner.Parent = ToggleBtn
+
+        local function updateToggle(state)
+            toggled = state
+            if flag then Library.Flags[flag] = toggled end
+            local targetColor = toggled and Theme.ToggleOn or Theme.ToggleOff
+            TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
+            task.spawn(callback, toggled)
+        end
+
+        local ClickArea = Instance.new("TextButton")
+        ClickArea.Size = UDim2.new(1, 0, 1, 0)
+        ClickArea.BackgroundTransparency = 1
+        ClickArea.Text = ""
+        ClickArea.Parent = Container
+
+        ClickArea.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                setScrollingEnabled(false)
+            end
+        end)
+
+        ClickArea.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                setScrollingEnabled(true)
+            end
+        end)
+
+        ClickArea.MouseButton1Click:Connect(function()
+            updateToggle(not toggled)
+        end)
+
+        if flag then Library.Flags[flag] = toggled end
+
+        return Container
+    end
+
+    -- 3. LABEL
+    function Tab:AddLabel(options)
+        options = options or {}
+        local text = options.text or "Label"
+
+        local Label = Instance.new("TextLabel")
+        Label.Name = "Label"
+        Label.Size = UDim2.new(1, 0, 0, 24)
+        Label.BackgroundTransparency = 1
+        Label.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+        Label.Text = text
+        Label.TextColor3 = Theme.Text
+        Label.TextSize = 13
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.Parent = ContentContainer
+
+        return Label
+    end
+
+    -- 4. INPUT BOX
+    function Tab:AddInput(options)
+        options = options or {}
+        local placeholder = options.placeholder or options.text or "Input..."
+        local callback = options.callback or function() end
+        local numericOnly = options.numeric or false
+
+        local InputBox = Instance.new("TextBox")
+        InputBox.Name = "InputBox"
+        InputBox.Size = UDim2.new(1, 0, 0, 32)
+        InputBox.BackgroundColor3 = Color3.fromRGB(31, 31, 31)
+        InputBox.BorderColor3 = Theme.InputBorder
+        InputBox.BorderSizePixel = 1
+        InputBox.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+        InputBox.PlaceholderText = placeholder
+        InputBox.Text = ""
+        InputBox.TextColor3 = Theme.Text
+        InputBox.TextSize = 13
+        InputBox.ClearTextOnFocus = false
+        InputBox.Parent = ContentContainer
+
+        InputBox.Focused:Connect(function()
+            setScrollingEnabled(false)
+        end)
+
+        InputBox.FocusLost:Connect(function(enterPressed)
+            setScrollingEnabled(true)
+            local text = InputBox.Text
+            if numericOnly then
+                text = text:gsub("%D+", "")
+                InputBox.Text = text
+            end
+            task.spawn(callback, text)
+        end)
+
+        return InputBox
+    end
+
+    -- 5. SLIDER
+    function Tab:AddSlider(options)
+        options = options or {}
+        local text = options.text or "Slider"
+        local min = options.min or 0
+        local max = options.max or 100
+        local defaultVal = options.default or min
+        local flag = options.flag
+        local callback = options.callback or function() end
+
+        local Container = Instance.new("Frame")
+        Container.Name = "SliderContainer"
+        Container.Size = UDim2.new(1, 0, 0, 42)
+        Container.BackgroundTransparency = 1
+        Container.Parent = ContentContainer
+
+        local Label = Instance.new("TextLabel")
+        Label.Size = UDim2.new(1, -45, 0, 18)
+        Label.BackgroundTransparency = 1
+        Label.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+        Label.Text = text
+        Label.TextColor3 = Theme.Text
+        Label.TextSize = 12
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.Parent = Container
+
+        local ValueBox = Instance.new("TextBox")
+        ValueBox.Name = "ValueBox"
+        ValueBox.Size = UDim2.new(0, 40, 0, 18)
+        ValueBox.Position = UDim2.new(1, -40, 0, 0)
+        ValueBox.BackgroundTransparency = 1
+        ValueBox.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+        ValueBox.Text = tostring(defaultVal)
+        ValueBox.TextColor3 = Theme.Text
+        ValueBox.TextSize = 12
+        ValueBox.TextXAlignment = Enum.TextXAlignment.Right
+        ValueBox.Parent = Container
+
+        local SliderTrack = Instance.new("Frame")
+        SliderTrack.Name = "Slider"
+        SliderTrack.Size = UDim2.new(1, 0, 0, 8)
+        SliderTrack.Position = UDim2.new(0, 0, 0, 24)
+        SliderTrack.BackgroundColor3 = Theme.SliderBg
+        SliderTrack.BorderSizePixel = 0
+        SliderTrack.Parent = Container
+
+        local TrackCorner = Instance.new("UICorner")
+        TrackCorner.CornerRadius = UDim.new(1, 0)
+        TrackCorner.Parent = SliderTrack
+
+        local SliderFill = Instance.new("Frame")
+        SliderFill.Name = "SliderFill"
+        SliderFill.Size = UDim2.new((defaultVal - min) / (max - min), 0, 1, 0)
+        SliderFill.BackgroundColor3 = Theme.SliderFill
+        SliderFill.BorderSizePixel = 0
+        SliderFill.Parent = SliderTrack
+
+        local FillCorner = Instance.new("UICorner")
+        FillCorner.CornerRadius = UDim.new(1, 0)
+        FillCorner.Parent = SliderFill
+
+        local SliderKnob = Instance.new("Frame")
+        SliderKnob.Name = "SliderKnob"
+        SliderKnob.Size = UDim2.new(0, 12, 0, 12)
+        SliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+        SliderKnob.Position = UDim2.new(1, 0, 0.5, 0)
+        SliderKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        SliderKnob.BorderSizePixel = 0
+        SliderKnob.Parent = SliderFill
+
+        local KnobCorner = Instance.new("UICorner")
+        KnobCorner.CornerRadius = UDim.new(1, 0)
+        KnobCorner.Parent = SliderKnob
+
+        local value = defaultVal
+
+        local function setValue(newVal)
+            value = math.clamp(math.round(newVal), min, max)
+            local percent = (value - min) / (max - min)
+            SliderFill.Size = UDim2.new(percent, 0, 1, 0)
+            ValueBox.Text = tostring(value)
+            if flag then Library.Flags[flag] = value end
+            task.spawn(callback, value)
+        end
+
+        local sliding = false
+
+        local function updateFromInput(input)
+            local mousePos = input.Position.X
+            local trackPos = SliderTrack.AbsolutePosition.X
+            local trackWidth = SliderTrack.AbsoluteSize.X
+            local scale = math.clamp((mousePos - trackPos) / trackWidth, 0, 1)
+            setValue(min + (scale * (max - min)))
+        end
+
+        SliderTrack.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                sliding = true
+                setScrollingEnabled(false)
+                updateFromInput(input)
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if sliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                updateFromInput(input)
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if sliding then
+                    sliding = false
+                    setScrollingEnabled(true)
+                end
+            end
+        end)
+
+        ValueBox.FocusLost:Connect(function()
+            local num = tonumber(ValueBox.Text)
+            if num then
+                setValue(num)
+            else
+                ValueBox.Text = tostring(value)
+            end
+        end)
+
+        if flag then Library.Flags[flag] = value end
+
+        return Container
+    end
+
     function Tab:AddDropdown(options)
         options = options or {}
         local text = options.text or options.Text or "Select Option"
@@ -190,7 +514,7 @@ function Library:CreateWindow(titleText)
         local flag = options.flag or options.Flag
         local callback = options.callback or options.Callback or function() end
 
-        -- Determine initial selection
+        -- Determine initial selection value
         local currentSelection = ""
         if type(selectVal) == "number" then
             currentSelection = values[selectVal] or values[1] or ""
@@ -202,7 +526,7 @@ function Library:CreateWindow(titleText)
         Container.Name = "DropdownContainer"
         Container.Size = UDim2.new(1, 0, 0, 30)
         Container.BackgroundTransparency = 1
-        Container.Parent = ContentContainer
+        Container.Parent = ScrollingFrame
 
         local DropdownBtn = Instance.new("TextButton")
         DropdownBtn.Name = "DropdownButton"
@@ -220,25 +544,30 @@ function Library:CreateWindow(titleText)
         UICorner.CornerRadius = UDim.new(0, 3)
         UICorner.Parent = DropdownBtn
 
-        -- Modal Modal Overlay
+        -- Fullscreen Overlay Background
         local Overlay = Instance.new("TextButton")
         Overlay.Name = "DropdownModalOverlay"
         Overlay.Size = UDim2.new(1, 0, 1, 0)
         Overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         Overlay.BackgroundTransparency = 0.5
         Overlay.Text = ""
+        Overlay.AutoButtonColor = false
         Overlay.Visible = false
         Overlay.ZIndex = 100
         Overlay.Parent = ScreenGui
 
-        local ModalFrame = Instance.new("Frame")
+        -- Modal Container Frame
+        local ModalFrame = Instance.new("TextButton")
         ModalFrame.Name = "ModalFrame"
         ModalFrame.Size = UDim2.new(0, 180, 0, 0)
-        ModalFrame.Position = UDim2.new(0.5, -90, 0.5, 0)
-        ModalFrame.AnchorPoint = Vector2.new(0, 0.5)
+        ModalFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+        ModalFrame.AnchorPoint = Vector2.new(0.5, 0.5)
         ModalFrame.BackgroundColor3 = Theme.Background
         ModalFrame.BorderSizePixel = 0
         ModalFrame.ClipsDescendants = true
+        ModalFrame.Text = ""
+        ModalFrame.AutoButtonColor = false
+        ModalFrame.Active = true
         ModalFrame.ZIndex = 101
         ModalFrame.Parent = Overlay
 
@@ -272,16 +601,14 @@ function Library:CreateWindow(titleText)
         ModalPadding.Parent = ModalScroll
 
         local function closeModal()
-            TweenService:Create(ModalFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 180, 0, 0)
-            }):Play()
+            Utility:Tween(ModalFrame, {Size = UDim2.new(0, 180, 0, 0)}, 0.2)
             task.delay(0.2, function()
                 Overlay.Visible = false
             end)
         end
 
         local function openModal()
-            -- Re-populate list
+            -- Clear previous entries
             for _, child in ipairs(ModalScroll:GetChildren()) do
                 if child:IsA("TextButton") then
                     child:Destroy()
@@ -319,408 +646,137 @@ function Library:CreateWindow(titleText)
             ModalScroll.CanvasSize = UDim2.new(0, 0, 0, calculatedHeight)
             Overlay.Visible = true
 
-            TweenService:Create(ModalFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 180, 0, targetHeight)
-            }):Play()
+            Utility:Tween(ModalFrame, {Size = UDim2.new(0, 180, 0, targetHeight)}, 0.2)
         end
 
         DropdownBtn.MouseButton1Click:Connect(openModal)
-        Overlay.MouseButton1Click:Connect(closeModal)
+        
+        -- Close when clicking outside on the overlay background only
+        Overlay.MouseButton1Click:Connect(function()
+            closeModal()
+        end)
 
         if flag then Library.Flags[flag] = currentSelection end
 
         return Container
     end
 
-    -- 1. BUTTON
-    function Tab:AddButton(options)
-        options = options or {}
-        local text = options.text or "Button"
-        local callback = options.callback or function() end
-
-        local Button = Instance.new("TextButton")
-        Button.Name = "Button"
-        Button.Size = UDim2.new(1, 0, 0, 28)
-        Button.BackgroundColor3 = Color3.fromRGB(48, 48, 48)
-        Button.BorderSizePixel = 0
-        Button.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-        Button.Text = text
-        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Button.TextSize = 14
-        Button.TextWrapped = true
-        Button.Parent = ScrollingFrame
-
-        local UICorner = Instance.new("UICorner")
-        UICorner.CornerRadius = UDim.new(0, 3)
-        UICorner.Parent = Button
-
-        Button.MouseEnter:Connect(function()
-            Utility:Tween(Button, {BackgroundColor3 = Color3.fromRGB(58, 58, 58)}, 0.15)
-        end)
-        Button.MouseLeave:Connect(function()
-            Utility:Tween(Button, {BackgroundColor3 = Color3.fromRGB(48, 48, 48)}, 0.15)
-        end)
-        Button.MouseButton1Down:Connect(function()
-            Utility:Tween(Button, {BackgroundColor3 = Color3.fromRGB(38, 38, 38)}, 0.1)
-        end)
-        Button.MouseButton1Up:Connect(function()
-            Utility:Tween(Button, {BackgroundColor3 = Color3.fromRGB(58, 58, 58)}, 0.1)
-            callback()
-        end)
-
-        return Button
-    end
-
-    -- 2. TOGGLE
-    function Tab:AddToggle(options)
-        options = options or {}
-        local text = options.text or "Toggle"
-        local flag = options.flag
-        local default = options.default or false
-        local callback = options.callback or function() end
-
-        local state = default
-
-        local ToggleRow = Instance.new("TextButton")
-        ToggleRow.Name = "ToggleRow"
-        ToggleRow.Size = UDim2.new(1, 0, 0, 32)
-        ToggleRow.BackgroundTransparency = 1
-        ToggleRow.Text = ""
-        ToggleRow.Parent = ScrollingFrame
-
-        local ToggleLabel = Instance.new("TextLabel")
-        ToggleLabel.Name = "ToggleLabel"
-        ToggleLabel.Size = UDim2.new(1, -36, 1, 0)
-        ToggleLabel.Position = UDim2.new(0, 2, 0, 0)
-        ToggleLabel.BackgroundTransparency = 1
-        ToggleLabel.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-        ToggleLabel.Text = text
-        ToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        ToggleLabel.TextSize = 14
-        ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-        ToggleLabel.Parent = ToggleRow
-
-        local ToggleIndicator = Instance.new("Frame")
-        ToggleIndicator.Name = "ToggleIndicator"
-        ToggleIndicator.Size = UDim2.new(0, 26, 0, 26)
-        ToggleIndicator.Position = UDim2.new(1, -28, 0, 3)
-        ToggleIndicator.BackgroundColor3 = state and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-        ToggleIndicator.Parent = ToggleRow
-
-        local IndicatorCorner = Instance.new("UICorner")
-        IndicatorCorner.CornerRadius = UDim.new(0, 4)
-        IndicatorCorner.Parent = ToggleIndicator
-
-        local function updateToggle(val)
-            state = val
-            if flag then Library.Flags[flag] = state end
-            local targetColor = state and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-            Utility:Tween(ToggleIndicator, {BackgroundColor3 = targetColor}, 0.2)
-            callback(state)
-        end
-
-        ToggleRow.MouseButton1Click:Connect(function()
-            setScrollLock(true)
-            updateToggle(not state)
-            task.delay(0.05, function() setScrollLock(false) end)
-        end)
-
-        if flag then Library.Flags[flag] = state end
-
-        return ToggleRow
-    end
-
-    -- 3. LABEL
-    function Tab:AddLabel(options)
-        options = options or {}
-        local text = options.text or "Label"
-
-        local LabelFrame = Instance.new("TextLabel")
-        LabelFrame.Name = "Label"
-        LabelFrame.Size = UDim2.new(1, 0, 0, 24)
-        LabelFrame.BackgroundTransparency = 1
-        LabelFrame.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-        LabelFrame.Text = text
-        LabelFrame.TextColor3 = Color3.fromRGB(255, 255, 255)
-        LabelFrame.TextSize = 14
-        LabelFrame.TextXAlignment = Enum.TextXAlignment.Left
-        LabelFrame.Parent = ScrollingFrame
-
-        return LabelFrame
-    end
-
-    -- 4. SLIDER
-    function Tab:AddSlider(options)
-        options = options or {}
-        local text = options.text or "Slider"
-        local min = options.min or 0
-        local max = options.max or 100
-        local default = options.default or min
-        local flag = options.flag
-        local callback = options.callback or function() end
-
-        local currentValue = math.clamp(default, min, max)
-
-        local SliderContainer = Instance.new("Frame")
-        SliderContainer.Name = "Slider"
-        SliderContainer.Size = UDim2.new(1, 0, 0, 42)
-        SliderContainer.BackgroundTransparency = 1
-        SliderContainer.Parent = ScrollingFrame
-
-        local SliderLabel = Instance.new("TextLabel")
-        SliderLabel.Name = "SliderLabel"
-        SliderLabel.Size = UDim2.new(1, -45, 0, 18)
-        SliderLabel.BackgroundTransparency = 1
-        SliderLabel.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-        SliderLabel.Text = text
-        SliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        SliderLabel.TextSize = 13
-        SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-        SliderLabel.Parent = SliderContainer
-
-        local ValueBox = Instance.new("TextBox")
-        ValueBox.Name = "ValueBox"
-        ValueBox.Size = UDim2.new(0, 40, 0, 18)
-        ValueBox.Position = UDim2.new(1, -40, 0, 0)
-        ValueBox.BackgroundColor3 = Color3.fromRGB(31, 31, 31)
-        ValueBox.BorderSizePixel = 1
-        ValueBox.BorderColor3 = Color3.fromRGB(61, 61, 61)
-        ValueBox.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-        ValueBox.Text = tostring(currentValue)
-        ValueBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-        ValueBox.TextSize = 12
-        ValueBox.Parent = SliderContainer
-
-        local Track = Instance.new("Frame")
-        Track.Name = "SliderTrack"
-        Track.Size = UDim2.new(1, 0, 0, 12)
-        Track.Position = UDim2.new(0, 0, 0, 24)
-        Track.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        Track.BorderSizePixel = 0
-        Track.Parent = SliderContainer
-
-        local TrackCorner = Instance.new("UICorner")
-        TrackCorner.CornerRadius = UDim.new(0, 4)
-        TrackCorner.Parent = Track
-
-        local Fill = Instance.new("Frame")
-        Fill.Name = "SliderFill"
-        Fill.Size = UDim2.new((currentValue - min) / (max - min), 0, 1, 0)
-        Fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        Fill.BorderSizePixel = 0
-        Fill.Parent = Track
-
-        local FillCorner = Instance.new("UICorner")
-        FillCorner.CornerRadius = UDim.new(0, 4)
-        FillCorner.Parent = Fill
-
-        local Knob = Instance.new("Frame")
-        Knob.Name = "SliderKnob"
-        Knob.Size = UDim2.new(0, 14, 0, 14)
-        Knob.AnchorPoint = Vector2.new(0.5, 0.5)
-        Knob.Position = UDim2.new(1, 0, 0.5, 0)
-        Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        Knob.BorderSizePixel = 0
-        Knob.Parent = Fill
-
-        local KnobCorner = Instance.new("UICorner")
-        KnobCorner.CornerRadius = UDim.new(1, 0)
-        KnobCorner.Parent = Knob
-
-        local draggingSlider = false
-
-        local function setValue(val, skipBox)
-            currentValue = math.clamp(math.round(val), min, max)
-            local percent = (currentValue - min) / (max - min)
-            Fill.Size = UDim2.new(percent, 0, 1, 0)
-            if not skipBox then
-                ValueBox.Text = tostring(currentValue)
-            end
-            if flag then Library.Flags[flag] = currentValue end
-            callback(currentValue)
-        end
-
-        local function updateFromInput(input)
-            local posX = input.Position.X - Track.AbsolutePosition.X
-            local percent = math.clamp(posX / Track.AbsoluteSize.X, 0, 1)
-            setValue(min + (max - min) * percent)
-        end
-
-        Track.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                draggingSlider = true
-                setScrollLock(true)
-                updateFromInput(input)
-            end
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                updateFromInput(input)
-            end
-        end)
-
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                if draggingSlider then
-                    draggingSlider = false
-                    setScrollLock(false)
-                end
-            end
-        end)
-
-        ValueBox.FocusLost:Connect(function()
-            local num = tonumber(ValueBox.Text)
-            if num then
-                setValue(num)
-            else
-                ValueBox.Text = tostring(currentValue)
-            end
-        end)
-
-        ValueBox.Focused:Connect(function()
-            setScrollLock(true)
-        end)
-
-        if flag then Library.Flags[flag] = currentValue end
-
-        return SliderContainer
-    end
-
-    -- 5. KEYBIND
+    return Tab
+end
+    -- 6. KEYBIND
     function Tab:AddBind(options)
         options = options or {}
         local text = options.text or "Keybind"
-        local key = options.key or "X"
-        local hold = options.hold or false
-        local flag = options.flag
+        local defaultKey = options.key or "X"
+        local holdMode = options.hold or false
         local callback = options.callback or function() end
 
-        local currentKey = Enum.KeyCode[key] or Enum.KeyCode.X
+        local currentKey = defaultKey
+
+        local Container = Instance.new("Frame")
+        Container.Name = "Keybind"
+        Container.Size = UDim2.new(1, 0, 0, 30)
+        Container.BackgroundTransparency = 1
+        Container.Parent = ContentContainer
+
+        local Label = Instance.new("TextLabel")
+        Label.Size = UDim2.new(1, -50, 1, 0)
+        Label.BackgroundTransparency = 1
+        Label.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+        Label.Text = text
+        Label.TextColor3 = Theme.Text
+        Label.TextSize = 13
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.Parent = Container
+
+        local FrameBtn = Instance.new("Frame")
+        FrameBtn.Name = "Frame_5"
+        FrameBtn.Size = UDim2.new(0, 44, 0, 26)
+        FrameBtn.Position = UDim2.new(1, -44, 0.5, -13)
+        FrameBtn.BackgroundColor3 = Theme.Background
+        FrameBtn.Parent = Container
+
+        local FrameCorner = Instance.new("UICorner")
+        FrameCorner.CornerRadius = UDim.new(0, 4)
+        FrameCorner.Parent = FrameBtn
+
+        local UIStroke = Instance.new("UIStroke")
+        UIStroke.Thickness = 1
+        UIStroke.Color = Color3.fromRGB(56, 56, 56)
+        UIStroke.Parent = FrameBtn
+
+        local KeybindButton = Instance.new("TextButton")
+        KeybindButton.Name = "KeybindButton"
+        KeybindButton.Size = UDim2.new(1, 0, 1, 0)
+        KeybindButton.BackgroundTransparency = 1
+        KeybindButton.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+        KeybindButton.Text = currentKey
+        KeybindButton.TextColor3 = Theme.Text
+        KeybindButton.TextSize = 12
+        KeybindButton.Parent = FrameBtn
+
         local binding = false
 
-        local BindRow = Instance.new("Frame")
-        BindRow.Name = "KeybindRow"
-        BindRow.Size = UDim2.new(1, 0, 0, 30)
-        BindRow.BackgroundTransparency = 1
-        BindRow.Parent = ScrollingFrame
-
-        local BindLabel = Instance.new("TextLabel")
-        BindLabel.Name = "BindLabel"
-        BindLabel.Size = UDim2.new(1, -50, 1, 0)
-        BindLabel.Position = UDim2.new(0, 2, 0, 0)
-        BindLabel.BackgroundTransparency = 1
-        BindLabel.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-        BindLabel.Text = text
-        BindLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        BindLabel.TextSize = 14
-        BindLabel.TextXAlignment = Enum.TextXAlignment.Left
-        BindLabel.Parent = BindRow
-
-        local KeybindBtn = Instance.new("TextButton")
-        KeybindBtn.Name = "KeybindButton"
-        KeybindBtn.Size = UDim2.new(0, 44, 0, 26)
-        KeybindBtn.Position = UDim2.new(1, -44, 0, 2)
-        KeybindBtn.BackgroundColor3 = Color3.fromRGB(21, 21, 21)
-        KeybindBtn.BorderSizePixel = 0
-        KeybindBtn.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-        KeybindBtn.Text = currentKey.Name
-        KeybindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        KeybindBtn.TextSize = 12
-        KeybindBtn.Parent = BindRow
-
-        local BtnCorner = Instance.new("UICorner")
-        BtnCorner.CornerRadius = UDim.new(0, 4)
-        BtnCorner.Parent = KeybindBtn
-
-        local Stroke = Instance.new("UIStroke")
-        Stroke.Thickness = 1.5
-        Stroke.Color = Color3.fromRGB(56, 56, 56)
-        Stroke.Parent = KeybindBtn
-
-        KeybindBtn.MouseButton1Click:Connect(function()
+        KeybindButton.MouseButton1Click:Connect(function()
             binding = true
-            setScrollLock(true)
-            KeybindBtn.Text = "..."
+            KeybindButton.Text = "..."
+            setScrollingEnabled(false)
         end)
 
         UserInputService.InputBegan:Connect(function(input, gpe)
+            if gpe then return end
+
             if binding then
-                if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode ~= Enum.KeyCode.Unknown then
-                    currentKey = input.KeyCode
-                    KeybindBtn.Text = currentKey.Name
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    currentKey = input.KeyCode.Name
+                    KeybindButton.Text = currentKey
                     binding = false
-                    setScrollLock(false)
-                    if flag then Library.Flags[flag] = currentKey end
+                    setScrollingEnabled(true)
+                elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 then
+                    currentKey = input.UserInputType.Name
+                    KeybindButton.Text = currentKey
+                    binding = false
+                    setScrollingEnabled(true)
                 end
-            elseif not gpe and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currentKey then
-                if not hold then
-                    callback()
+            else
+                if not holdMode then
+                    if (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == currentKey)
+                    or (input.UserInputType.Name == currentKey) then
+                        task.spawn(callback)
+                    end
                 else
-                    callback(true)
+                    if (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == currentKey)
+                    or (input.UserInputType.Name == currentKey) then
+                        task.spawn(callback, true)
+                    end
                 end
             end
         end)
 
-        if hold then
+        if holdMode then
             UserInputService.InputEnded:Connect(function(input, gpe)
-                if not gpe and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currentKey then
-                    callback(false)
+                if gpe or binding then return end
+                if (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == currentKey)
+                or (input.UserInputType.Name == currentKey) then
+                    task.spawn(callback, false)
                 end
             end)
         end
 
-        if flag then Library.Flags[flag] = currentKey end
-
-        return BindRow
+        return Container
     end
 
-    -- 6. INPUT (TEXTBOX)
-    function Tab:AddInput(options)
-        options = options or {}
-        local placeholder = options.placeholder or "Input..."
-        local flag = options.flag
-        local callback = options.callback or function() end
-
-        local InputBox = Instance.new("TextBox")
-        InputBox.Name = "InputBox"
-        InputBox.Size = UDim2.new(1, 0, 0, 32)
-        InputBox.BackgroundColor3 = Color3.fromRGB(31, 31, 31)
-        InputBox.BorderSizePixel = 1
-        InputBox.BorderColor3 = Color3.fromRGB(61, 61, 61)
-        InputBox.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-        InputBox.PlaceholderText = placeholder
-        InputBox.Text = ""
-        InputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-        InputBox.TextSize = 13
-        InputBox.Parent = ScrollingFrame
-
-        InputBox.Focused:Connect(function()
-            setScrollLock(true)
-        end)
-
-        InputBox.FocusLost:Connect(function(enterPressed)
-            setScrollLock(false)
-            if enterPressed then
-                if flag then Library.Flags[flag] = InputBox.Text end
-                callback(InputBox.Text)
-            end
-        end)
-
-        return InputBox
-    end
-
-    Library.ScreenGui = ScreenGui
+    Library.CurrentWindow = Tab
     return Tab
 end
 
 function Library:Init()
-    -- Library initialized and ready
+    -- Initialization tasks if needed
 end
 
 function Library:Close()
-    if Library.ScreenGui then
-        Library.ScreenGui:Destroy()
+    if ScreenGui then
+        ScreenGui:Destroy()
     end
     Library.Unloaded = true
 end
